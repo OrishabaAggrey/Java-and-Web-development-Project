@@ -44,7 +44,8 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import axios from 'axios';
 
 const currentTab = ref('Daily');
 const searchQuery = ref('');
@@ -52,25 +53,44 @@ const newTaskText = ref('');
 const editingId = ref(null);
 const editBuffer = ref('');
 
-// Task structure including category for tabs
-const tasks = ref([
-  { id: 1, text: 'Drink 8 glasses of water', done: false, category: 'Daily' },
-  { id: 2, text: 'Finish Vue project', done: false, category: 'Weekly' }
-]);
+const tasks = ref([]);
 
-const addTask = () => {
-  if (!newTaskText.value.trim()) return;
-  tasks.value.push({
-    id: Date.now(),
-    text: newTaskText.value,
-    done: false,
-    category: currentTab.value
-  });
-  newTaskText.value = '';
+const capitalize = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+
+const loadTasks = async () => {
+  try {
+    const res = await axios.get('/tasks');
+    tasks.value = res.data.map(t => ({
+      id: t.id,
+      text: t.title,
+      done: !!t.completed,
+      category: capitalize(t.frequency)
+    }));
+  } catch (err) {
+    console.error('Failed to load tasks', err);
+  }
 };
 
-const deleteTask = (id) => {
-  tasks.value = tasks.value.filter(t => t.id !== id);
+const addTask = async () => {
+  if (!newTaskText.value.trim()) return;
+  try {
+    const payload = { title: newTaskText.value, frequency: currentTab.value.toLowerCase() };
+    const res = await axios.post('/tasks', payload);
+    const t = res.data.task;
+    tasks.value.push({ id: t.id, text: t.title, done: !!t.completed, category: capitalize(t.frequency) });
+    newTaskText.value = '';
+  } catch (err) {
+    console.error('Failed to add task', err);
+  }
+};
+
+const deleteTask = async (id) => {
+  try {
+    await axios.delete(`/tasks/${id}`);
+    tasks.value = tasks.value.filter(t => t.id !== id);
+  } catch (err) {
+    console.error('Failed to delete task', err);
+  }
 };
 
 const startEdit = (task) => {
@@ -78,21 +98,38 @@ const startEdit = (task) => {
   editBuffer.value = task.text;
 };
 
-const saveEdit = (id) => {
+const saveEdit = async (id) => {
   const task = tasks.value.find(t => t.id === id);
-  if (task) task.text = editBuffer.value;
-  editingId.value = null;
+  if (!task) return;
+  try {
+    const payload = { title: editBuffer.value, frequency: task.category.toLowerCase(), completed: task.done };
+    const res = await axios.put(`/tasks/${id}`, payload);
+    const updated = res.data.task;
+    task.text = updated.title;
+    editingId.value = null;
+  } catch (err) {
+    console.error('Failed to save edit', err);
+  }
 };
 
-const toggleDone = (task) => { task.done = !task.done; };
+const toggleDone = async (task) => {
+  try {
+    const payload = { title: task.text, frequency: task.category.toLowerCase(), completed: !task.done };
+    const res = await axios.put(`/tasks/${task.id}`, payload);
+    task.done = res.data.task.completed;
+  } catch (err) {
+    console.error('Failed to toggle done', err);
+  }
+};
 
-// Filter by both Tab category and Search query
 const filteredTasks = computed(() => {
   return tasks.value.filter(task => 
     task.category === currentTab.value &&
     task.text.toLowerCase().includes(searchQuery.value.toLowerCase())
   );
 });
+
+onMounted(loadTasks);
 </script>
 
 <style scoped>
