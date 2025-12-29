@@ -1,0 +1,17 @@
+{
+  "name": "jw-backend",
+  "version": "1.0.0",
+  "description": "This is backend development",
+  "main": "backendserver.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Aggrey O",
+  "license": "MIT",
+  "dependencies": {
+    "and": "^0.0.3",
+    "body-parser": "^2.2.1",
+    "cors": "^2.8.5",
+    "express": "^5.2.1"
+  }
+}
